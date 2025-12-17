@@ -4,24 +4,14 @@ def utils = new org.acme.Utils(this)
 
 node {
   def value_artifactURLs = []
-  def application = "airflow-prototype"
-
-  // Only push on main by default (best practice for multibranch)
   def isMain = (env.BRANCH_NAME == "main" || env.BRANCH_NAME == "master")
   def shortSha = (env.GIT_COMMIT ?: "dev").take(7)
 
   try {
-
-    stage("Debug Workspace") {
-      sh """
-        set -eux
-        pwd
-        ls -la
-        ls -la docker || true
-        find . -maxdepth 3 -type f -name Dockerfile -print
-        git rev-parse HEAD || true
-        git status || true
-      """
+    stage("Checkout") {
+      // Multibranch + scripted pipeline: you must explicitly checkout
+      checkout scm
+      sh "git rev-parse HEAD && ls -la"
     }
 
     stage("Build & Push Image") {
@@ -37,13 +27,14 @@ node {
         registry = "docker.io"
         credentialsId = "docker-registry-creds"
 
+        // Your repo layout
         dockerfile = "docker/Dockerfile"
         context = "."
-        build_environment = "hydra_app"
+        build_environment = "Hydra_App"
       }
 
-      echo "Image built: ${imageData.imageRef}"
-      echo "Image with digest: ${imageData.imageWithSha}"
+      echo "Built image: ${imageData.imageRef}"
+      echo "Image digest: ${imageData.imageWithSha}"
     }
 
     stage("Publish Helm Values") {
@@ -55,7 +46,7 @@ node {
         redeploy = true
       }
 
-      echo "Helm values published: ${value_artifactURLs}"
+      echo "Helm values artifacts: ${value_artifactURLs}"
     }
 
   } catch (Exception err) {

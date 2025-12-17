@@ -11,6 +11,19 @@ node {
   def shortSha = (env.GIT_COMMIT ?: "dev").take(7)
 
   try {
+
+    stage("Debug Workspace") {
+      sh """
+        set -eux
+        pwd
+        ls -la
+        ls -la docker || true
+        find . -maxdepth 3 -type f -name Dockerfile -print
+        git rev-parse HEAD || true
+        git status || true
+      """
+    }
+
     stage("Build & Push Image") {
       def imageTag = isMain ? "latest" : shortSha
       def publishIt = isMain

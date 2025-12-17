@@ -2,7 +2,7 @@
 
 def utils = new org.acme.Utils(this)
 
-node('ml-cicd') {
+node {
   try {
     def isAppDeployment = true
     def application = "airflow-prototype"

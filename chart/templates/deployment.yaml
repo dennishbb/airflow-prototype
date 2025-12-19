@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "airflow-prototype.fullname" . }}
+  labels:
+    {{- include "airflow-prototype.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "airflow-prototype.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "airflow-prototype.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: airflow
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: {{ .Values.airflow.executor | quote }}
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: {{ .Values.airflow.loadExamples | quote }}
+            - name: AIRFLOW_HOME
+              value: /opt/airflow
+          envFrom:
+            - secretRef:
+                name: {{ include "airflow-prototype.fullname" . }}-secret
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "Starting Airflow standalone..."
+              airflow standalone
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}

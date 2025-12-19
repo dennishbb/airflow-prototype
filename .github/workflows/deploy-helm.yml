@@ -1,20 +1,28 @@
-name: Deploy Airflow to E1
+name: Deploy Airflow with Helm
 
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - e1
+          - e2
+          - e3
       image_tag:
-        description: "Docker image tag to deploy (e.g. git SHA from Jenkins)"
+        description: "Docker image tag to deploy (e.g., latest or git SHA)"
         required: true
         type: string
 
 jobs:
-  deploy-e1:
+  deploy:
     runs-on: [self-hosted, linux, k8s, cd]
-    environment: e1   # enables approvals later
+    environment: ${{ inputs.environment }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup kubectl
@@ -23,21 +31,40 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v4
 
-      - name: Configure kubeconfig (E1)
+      - name: Configure kubeconfig
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_E1 }}" > ~/.kube/config
+
+          case "${{ inputs.environment }}" in
+            e1) echo "${{ secrets.KUBECONFIG_E1 }}" > ~/.kube/config ;;
+            e2) echo "${{ secrets.KUBECONFIG_E2 }}" > ~/.kube/config ;;
+            e3) echo "${{ secrets.KUBECONFIG_E3 }}" > ~/.kube/config ;;
+            *) echo "Unknown environment"; exit 1 ;;
+          esac
+
           chmod 600 ~/.kube/config
 
-      - name: Deploy with Helm
+      - name: Deploy (Helm upgrade/install)
+        shell: bash
         run: |
-          helm upgrade --install airflow ./chart \
-            -n airflow-e1 \
+          set -euo pipefail
+          VALUES_FILE="helm/values-${{ inputs.environment }}.yaml"
+          NAMESPACE="airflow-${{ inputs.environment }}"
+          RELEASE_NAME="airflow"
+
+          test -f "${VALUES_FILE}" || (echo "Missing ${VALUES_FILE}" && exit 1)
+
+          helm upgrade --install "${RELEASE_NAME}" ./chart \
+            --namespace "${NAMESPACE}" \
             --create-namespace \
-            -f helm/values-e1.yaml \
-            --set image.repository=dennishbb/airflow-prototype \
-            --set image.tag=${{ inputs.image_tag }}
+            -f "${VALUES_FILE}" \
+            --set image.repository="dennishbb/airflow-prototype" \
+            --set image.tag="${{ inputs.image_tag }}"
 
       - name: Show status
+        shell: bash
         run: |
-          kubectl -n airflow-e1 get pods,svc
+          set -euo pipefail
+          kubectl -n "airflow-${{ inputs.environment }}" get pods,svc || true

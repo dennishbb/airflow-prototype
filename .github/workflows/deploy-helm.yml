@@ -10,7 +10,7 @@ on:
 
 jobs:
   deploy-e1:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, k8s, cd]
     environment: e1   # enables approvals later
 
     steps:

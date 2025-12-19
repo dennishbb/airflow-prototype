@@ -9,6 +9,7 @@ service:
   type: ClusterIP
 
 airflow:
+  fernetKey: "jPTBIzMsb69Dmgcy_4MFFSE8QQ1UryCla7nMwExnuKY="
   executor: SequentialExecutor
   loadExamples: "False"
 

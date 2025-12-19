@@ -15,14 +15,20 @@ spec:
       labels:
         app.kubernetes.io/name: {{ include "airflow-prototype.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
+      terminationGracePeriodSeconds: 10
+
       containers:
         - name: airflow
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+
           ports:
             - containerPort: 8080
               name: http
+
           env:
             - name: AIRFLOW__CORE__EXECUTOR
               value: {{ .Values.airflow.executor | quote }}
@@ -30,29 +36,48 @@ spec:
               value: {{ .Values.airflow.loadExamples | quote }}
             - name: AIRFLOW_HOME
               value: /opt/airflow
+
           envFrom:
             - secretRef:
                 name: {{ include "airflow-prototype.fullname" . }}-secret
+
           command: ["/bin/bash", "-lc"]
           args:
             - |
               set -euo pipefail
               echo "Starting Airflow standalone..."
               airflow standalone
+
+          # Airflow can take time to initialize DB + start the webserver.
+          # startupProbe prevents liveness from killing it during that warmup.
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60   # up to 5 minutes startup time
+
           readinessProbe:
             httpGet:
               path: /
               port: http
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18
+
           livenessProbe:
             httpGet:
               path: /
               port: http
-            initialDelaySeconds: 60
+            initialDelaySeconds: 180
             periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+
       nodeSelector:
         {{- toYaml .Values.nodeSelector | nindent 8 }}
       tolerations:

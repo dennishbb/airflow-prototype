@@ -1,12 +1,13 @@
+# helm/values-e1.yaml
 # E1 = dev / prototype environment
 
 image:
-  # Jenkins will build & push the image.
-  # GitHub Actions will override `tag` at deploy time.
   pullPolicy: Always
 
 service:
-  type: ClusterIP
+  type: NodePort
+  port: 8080
+  nodePort: 31880
 
 airflow:
   fernetKey: "jPTBIzMsb69Dmgcy_4MFFSE8QQ1UryCla7nMwExnuKY="
@@ -15,14 +16,11 @@ airflow:
 
 resources:
   requests:
-    cpu: "250m"
-    memory: "512Mi"
-  limits:
     cpu: "500m"
     memory: "1Gi"
-
-# E1 usually runs a single replica
-replicaCount: 1
+  limits:
+    cpu: "1"
+    memory: "2Gi"
 
 nodeSelector: {}
 tolerations: []

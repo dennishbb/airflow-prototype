@@ -1,0 +1,43 @@
+name: Deploy Airflow to E1
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker image tag to deploy (e.g. git SHA from Jenkins)"
+        required: true
+        type: string
+
+jobs:
+  deploy-e1:
+    runs-on: ubuntu-latest
+    environment: e1   # enables approvals later
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Configure kubeconfig (E1)
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_E1 }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install airflow ./chart \
+            -n airflow-e1 \
+            --create-namespace \
+            -f helm/values-e1.yaml \
+            --set image.repository=dennishbb/airflow-prototype \
+            --set image.tag=${{ inputs.image_tag }}
+
+      - name: Show status
+        run: |
+          kubectl -n airflow-e1 get pods,svc

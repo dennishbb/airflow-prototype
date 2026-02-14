@@ -13,7 +13,7 @@ airflow:
 
   admin:
     username: admin
-    password: admin
+    password: admin21
     email: admin@example.com
     firstname: Admin
     lastname: User

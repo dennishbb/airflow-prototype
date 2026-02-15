@@ -14,5 +14,8 @@ USER root
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+COPY dags/ /opt/airflow/dags/
+
+
 USER airflow
 ENTRYPOINT ["/entrypoint.sh"]

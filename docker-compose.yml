@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      
 
   airflow-webserver:
     build:
@@ -24,7 +25,7 @@ services:
       - ./plugins:/opt/airflow/plugins
     ports:
       - "8080:8080"
-    command: webserver
+    command: ["airflow", "api-server"]
 
   airflow-scheduler:
     build:
@@ -41,6 +42,24 @@ services:
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     command: scheduler
+
+  airflow-dag-processor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      RUN_DB_MIGRATE: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    depends_on:
+      airflow-webserver:
+        condition: service_started
+    command: ["airflow", "dag-processor"]
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
 
 volumes:
   postgres_data:
